@@ -1,0 +1,13 @@
+{
+  "bash_exe": "C:\\Program Files\\Git\\bin\\bash.exe",
+  "ssh_exe": "C:\\Program Files\\Git\\usr\\bin\\ssh.exe",
+  "infra_script_path": "C:\\Users\\manda\\Downloads\\manage_infra.sh",
+  "ssh_tunnel": {
+    "pem_key_path": "C:\\path\\to\\ec2-pem-key.pem",
+    "local_port": 3307,
+    "remote_host": "database-3.ct0wi8eqo8od.ap-south-1.rds.amazonaws.com",
+    "remote_port": 3306,
+    "ssh_user": "ubuntu",
+    "ssh_host": "15.206.29.16"
+  }
+}
