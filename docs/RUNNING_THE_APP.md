@@ -60,17 +60,62 @@ git-ignored. Re-run `./build.sh` any time you change code under `app/` or
 4. Save the file. No restart needed - settings are re-read each time you click
    a button.
 
-## Using the buttons
+## Using the app
 
-- **Run Infra Script** - runs `manage_infra.sh` via Git Bash; output streams
-  live into the log panel at the bottom of the window.
-- **Start DB Tunnel** - opens the SSH port-forward
-  (`localhost:3307 -> database-3....:3306`) in the background. Leave it
-  running for as long as you need DB access (e.g. via a MySQL client pointed
-  at `localhost:3307`).
-- **Stop DB Tunnel** - closes that SSH connection.
-- **Edit Settings** - opens `config.json` in your default editor.
+The window is split into four tabs, with a shared Activity Log always visible
+at the bottom (all tabs stream their output there).
+
+### Infra Control tab (EC2 + RDS)
+
+Each button runs `manage_infra.sh` (see its own `--help`/usage comments for
+the full command reference) via Git Bash:
+
+- **Start (1h)** / **Start (3h)** - `manage_infra.sh start 1h` / `start 3h`:
+  starts RDS then EC2, and auto-stops both after that duration. A warning is
+  logged 5 minutes before the auto-stop fires (immediately if the duration is
+  under 5 minutes).
+- **Start (no limit)** - `manage_infra.sh start`: starts RDS then EC2, stays
+  up until you stop it manually.
+- **Extend +1h** - `manage_infra.sh extend 1h`: adds 1 hour to a pending
+  auto-stop (or starts a fresh 1h timer if none is pending). Handy when you
+  get the "about to auto-stop" warning and just need more time.
+- **Stop** - `manage_infra.sh stop`: stops EC2 and RDS now.
+- **Cancel Auto-Stop** - `manage_infra.sh cancel-stop`: if you got the
+  "about to auto-stop" warning and want to keep going indefinitely, this
+  cancels the pending timer entirely without touching EC2/RDS. Re-running
+  any **Start** button also replaces a pending timer with a fresh one.
+- **Status** - `manage_infra.sh status`: prints current EC2/RDS state plus
+  how long until any pending auto-stop.
+
+### Database Tunnel tab
+
+- **Start Tunnel** - opens the SSH port-forward
+  (`localhost:3307 -> database-3....:3306`) in the background and
+  auto-reconnects if the connection drops. Leave it running for as long as
+  you need DB access (e.g. via a MySQL client pointed at `localhost:3307`).
+  The status dot next to the buttons turns green (Running) or gray (Stopped).
+- **Stop Tunnel** - closes the SSH connection and disables auto-reconnect.
 - Closing the window automatically stops the tunnel if it's still running.
+
+### Jobs tab
+
+Lists Windows Scheduled Tasks authored by your Windows user account (via
+`Get-ScheduledTask` in PowerShell) - i.e. tasks you created yourself, not the
+built-in Windows/vendor ones. Select a row, then:
+
+- **Refresh** - reloads the list (also runs automatically on startup).
+- **Run** - triggers the task immediately (`Start-ScheduledTask`).
+- **Enable** / **Disable** - toggles whether the task's own schedule/triggers
+  fire (`Enable-ScheduledTask` / `Disable-ScheduledTask`).
+- **Delete** - permanently removes the task (`Unregister-ScheduledTask`,
+  asks for confirmation first since this can't be undone).
+
+### Settings tab
+
+Shows the path to `config.json` and an **Edit Settings** button that opens it
+in your default editor.
+
+
 
 ## Option B - Run from source (for development)
 

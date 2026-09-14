@@ -1,12 +1,15 @@
 # Infra Toolbox
 
 A small Windows desktop app (Python + Tkinter) that gives you one-click buttons for
-infra chores instead of remembering shell commands:
+infra chores instead of remembering shell commands. Organized into tabs:
 
-- **Run Infra Script** - runs `manage_infra.sh` via Git Bash.
-- **Start/Stop DB Tunnel** - opens/closes the SSH local port-forward to the prod DB
-  (equivalent to `ssh -i ec2-pem-key.pem -L 3307:database-3....:3306 ubuntu@15.206.29.16`).
-- **Edit Settings** - opens `config.json` so each laptop can use its own paths/hosts.
+- **Infra Control** - Start (1h/3h/no limit), Extend +1h, Stop, Cancel Auto-Stop,
+  Status buttons that run `manage_infra.sh` via Git Bash.
+- **Database Tunnel** - Start/Stop buttons for the SSH local port-forward to the
+  prod DB (equivalent to `ssh -i ec2-pem-key.pem -L 3307:database-3....:3306 ubuntu@15.206.29.16`),
+  with a live status indicator and auto-reconnect if the connection drops.
+- **Jobs** - lists Windows Scheduled Tasks you created yourself, with Run/Enable/Disable/Delete.
+- **Settings** - opens `config.json` so each laptop can use its own paths/hosts.
 - Extensible: new buttons/tasks can be added without touching the GUI code.
 
 ## Docs
