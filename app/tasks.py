@@ -41,6 +41,41 @@ def _run_infra_command(args: List[str], log: Callable[[str], None]) -> int:
     return stream_process(cmd, on_line=log, env=build_env_with_git_tools(conf["bash_exe"]))
 
 
+def _run_resource_command(resource: str, action: str, log: Callable[[str], None]) -> int:
+    """Start or stop one AWS resource without affecting the other."""
+    conf = cfg.load_config()
+    aws = conf.get("aws_exe", "aws")
+    region = conf.get("aws_region", "ap-south-1")
+    if resource == "db":
+        cmd = [aws, "rds", f"{action}-db-instance", "--region", region,
+               "--db-instance-identifier", conf.get("rds_instance_id", "database-3")]
+    else:
+        cmd = [aws, "ec2", f"{action}-instances", "--region", region,
+               "--instance-ids", conf.get("ec2_instance_id", "i-0c3d1dd6757159c28")]
+    log(f"Running AWS {action} for {resource.upper()}...")
+    return stream_process(cmd, on_line=log)
+
+
+@register_task("Start DB only", "Starts RDS without changing EC2", style="success")
+def start_db_only(log: Callable[[str], None]) -> int:
+    return _run_resource_command("db", "start", log)
+
+
+@register_task("Start EC2 only", "Starts EC2 without changing RDS", style="success")
+def start_ec2_only(log: Callable[[str], None]) -> int:
+    return _run_resource_command("ec2", "start", log)
+
+
+@register_task("Stop DB only", "Stops RDS without changing EC2", style="danger")
+def stop_db_only(log: Callable[[str], None]) -> int:
+    return _run_resource_command("db", "stop", log)
+
+
+@register_task("Stop EC2 only", "Stops EC2 without changing RDS", style="danger")
+def stop_ec2_only(log: Callable[[str], None]) -> int:
+    return _run_resource_command("ec2", "stop", log)
+
+
 @register_task("Start (1h)", "Starts RDS + EC2, auto-stops after 1 hour", style="success")
 def start_infra_1h(log: Callable[[str], None]) -> int:
     return _run_infra_command(["start", "1h"], log)

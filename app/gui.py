@@ -151,13 +151,13 @@ class MainWindow:
         self.log_widget.tag_configure("normal", foreground="#d4d4d4")
 
     def _build_infra_tab(self, tab: ttk.Frame) -> None:
-        for task in TASKS:
+        for index, task in enumerate(TASKS):
             style_name, _, _ = BUTTON_STYLES.get(task.style, BUTTON_STYLES["primary"])
             btn = ttk.Button(
                 tab, text=task.name, style=style_name,
                 command=lambda t=task: self._run_task_async(t),
             )
-            btn.pack(side=tk.LEFT, anchor=tk.N, padx=6, pady=6)
+            btn.grid(row=index // 4, column=index % 4, sticky=tk.W, padx=6, pady=6)
             btn.bind("<Enter>", lambda _e, d=task.description: self._set_hint(d))
             btn.bind("<Leave>", lambda _e: self._set_hint(""))
 

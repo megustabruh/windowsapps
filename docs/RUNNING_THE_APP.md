@@ -70,6 +70,15 @@ at the bottom (all tabs stream their output there).
 Each button runs `manage_infra.sh` (see its own `--help`/usage comments for
 the full command reference) via Git Bash:
 
+- **Start DB only** / **Start EC2 only** and **Stop DB only** / **Stop EC2
+  only** operate on the selected AWS resource directly through AWS CLI. These
+  actions do not affect the other resource and do not create or change the
+  combined infra auto-stop timer. AWS CLI must be installed and authenticated
+  with permissions for the selected RDS or EC2 operation. Defaults are region
+  `ap-south-1`, RDS instance `database-3`, and EC2 instance
+  `i-0c3d1dd6757159c28`; optional config keys `aws_exe`, `aws_region`,
+  `rds_instance_id`, and `ec2_instance_id` can override them.
+
 - **Start (1h)** / **Start (3h)** - `manage_infra.sh start 1h` / `start 3h`:
   starts RDS then EC2, and auto-stops both after that duration. A warning is
   logged 5 minutes before the auto-stop fires (immediately if the duration is
