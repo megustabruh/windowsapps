@@ -11,7 +11,7 @@ from tkinter import messagebox, scrolledtext, ttk
 from . import config as cfg
 from . import scheduled_tasks
 from .ssh_tunnel import SSHTunnel
-from .tasks import TASKS, Task, upload_frontend_to_s3
+from .tasks import TASKS, Task, deploy_backend_to_ec2, deploy_both, upload_frontend_to_s3
 
 BG = "#000000"
 HEADER_BG = "#111827"
@@ -123,7 +123,7 @@ class MainWindow:
         notebook.add(infra_tab, text="Infra Control")
         notebook.add(tunnel_tab, text="Database Tunnel")
         notebook.add(jobs_tab, text="Jobs")
-        notebook.add(s3_tab, text="S3 Deployment")
+        notebook.add(s3_tab, text="Production Deploy")
         notebook.add(settings_tab, text="Settings")
 
         self._build_infra_tab(infra_tab)
@@ -166,6 +166,8 @@ class MainWindow:
         self.log_widget.tag_configure("tunnel", foreground="#60a5fa")
         self.log_widget.tag_configure("jobs", foreground="#c084fc")
         self.log_widget.tag_configure("s3", foreground="#34d399")
+        self.log_widget.tag_configure("ec2", foreground="#fbbf24")
+        self.log_widget.tag_configure("deploy", foreground="#a78bfa")
         self.log_widget.tag_configure("normal", foreground="#d4d4d4")
 
     def _build_infra_tab(self, tab: ttk.Frame) -> None:
@@ -235,22 +237,30 @@ class MainWindow:
         )
         bucket = conf.get("frontend_s3_bucket", "personal-react-app")
         region = conf.get("aws_region", "ap-south-1")
-        ttk.Label(tab, text="Frontend build:", style="Status.TLabel").grid(
+        ttk.Label(tab, text="Production frontend build:", style="Status.TLabel").grid(
             row=0, column=0, sticky=tk.W, padx=6, pady=(6, 2)
         )
         ttk.Label(tab, text=source, style="Hint.TLabel", wraplength=790).grid(
             row=1, column=0, sticky=tk.W, padx=6, pady=(0, 8)
         )
-        ttk.Label(tab, text=f"S3 destination: s3://{bucket}  ({region})", style="Status.TLabel").grid(
+        ttk.Label(tab, text=f"S3 production destination: s3://{bucket}  ({region})", style="Status.TLabel").grid(
             row=2, column=0, sticky=tk.W, padx=6, pady=(0, 10)
         )
         self.s3_upload_button = ttk.Button(
-            tab, text="Upload Frontend to S3", style="Primary.TButton", command=self._upload_frontend
+            tab, text="Deploy Frontend to Prod", style="Primary.TButton", command=self._upload_frontend
         )
         self.s3_upload_button.grid(row=3, column=0, sticky=tk.W, padx=6, pady=6)
+        self.ec2_deploy_button = ttk.Button(
+            tab, text="Deploy Backend to EC2", style="Success.TButton", command=self._deploy_backend
+        )
+        self.ec2_deploy_button.grid(row=3, column=1, sticky=tk.W, padx=6, pady=6)
+        self.deploy_both_button = ttk.Button(
+            tab, text="Deploy Both", style="Neutral.TButton", command=self._deploy_both
+        )
+        self.deploy_both_button.grid(row=3, column=2, sticky=tk.W, padx=6, pady=6)
         ttk.Label(
             tab,
-            text="Uploads new and changed files; existing unrelated bucket objects are left in place. Requires AWS CLI access to S3.",
+            text="Deploy Both attempts S3 and EC2 independently and reports a failure if either operation fails.",
             style="Hint.TLabel", wraplength=790,
         ).grid(row=4, column=0, sticky=tk.W, padx=6, pady=(4, 0))
 
@@ -283,6 +293,10 @@ class MainWindow:
                 tag = "jobs"
             elif message.startswith("[s3]"):
                 tag = "s3"
+            elif message.startswith("[ec2]"):
+                tag = "ec2"
+            elif message.startswith("[deploy]"):
+                tag = "deploy"
             else:
                 tag = "normal"
             self.log_widget.configure(state="normal")
@@ -313,16 +327,30 @@ class MainWindow:
         threading.Thread(target=worker, daemon=True).start()
 
     def _upload_frontend(self) -> None:
-        self.s3_upload_button.configure(state=tk.DISABLED)
+        self._run_deployment_async(self.s3_upload_button, "Frontend", upload_frontend_to_s3)
 
+    def _deploy_backend(self) -> None:
+        self._run_deployment_async(self.ec2_deploy_button, "Backend", deploy_backend_to_ec2)
+
+    def _deploy_both(self) -> None:
+        self._run_deployment_async(self.deploy_both_button, "Both", deploy_both)
+
+    def _run_deployment_async(self, button: ttk.Button, label: str, runner) -> None:
+        button.configure(state=tk.DISABLED)
         def worker() -> None:
             try:
-                code = upload_frontend_to_s3(self._log_queue.put)
-                self._log_queue.put(f"Frontend S3 upload finished (exit code {code}).")
+                code = runner(self._log_queue.put)
+                self._log_queue.put(f"{label} deployment finished (exit code {code}).")
             except Exception as exc:
-                self._log_queue.put(f"[s3] Frontend upload failed: {exc}")
+                if button is self.s3_upload_button:
+                    tag = "s3"
+                elif button is self.ec2_deploy_button:
+                    tag = "ec2"
+                else:
+                    tag = "deploy"
+                self._log_queue.put(f"[{tag}] {label} deployment failed: {exc}")
             finally:
-                self.root.after(0, lambda: self.s3_upload_button.configure(state=tk.NORMAL))
+                self.root.after(0, lambda: button.configure(state=tk.NORMAL))
 
         threading.Thread(target=worker, daemon=True).start()
 

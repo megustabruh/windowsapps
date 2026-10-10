@@ -99,9 +99,9 @@ the full command reference) via Git Bash:
 - **Status** - `manage_infra.sh status`: prints current EC2/RDS state plus
   how long until any pending auto-stop.
 
-### S3 Deployment tab
+### Production Deploy tab
 
-- **Upload Frontend to S3** runs `aws s3 sync` from the configured frontend
+- **Deploy Frontend to Prod** runs `aws s3 sync` from the configured frontend
   build folder to the configured bucket and region. By default, this uploads
   `D:\Workspaces\Mixed\Houstyle\builder-io-react-frontend\dist\spa` to
   `s3://personal-react-app` in `ap-south-1`. New and changed files are uploaded;
@@ -111,6 +111,21 @@ the full command reference) via Git Bash:
 
   Configure `aws_exe`, `aws_region`, `frontend_dist_path`, and
   `frontend_s3_bucket` in `config.json` if these defaults differ.
+- **Deploy Backend to EC2** connects using the SSH host, user, key, and client
+  configured under `ssh_tunnel`, then runs these commands in order in
+  `~/fastapi-lambda-app`:
+
+  ```bash
+  git pull origin main
+  source venv/bin/activate
+  alembic upgrade heads
+  ```
+
+  Each command must succeed before the next runs. The Activity Log streams
+  command output and reports the final status.
+- **Deploy Both** runs the S3 and EC2 deployments independently, even if one
+  fails. The Activity Log shows each result and reports **DEPLOY BOTH FAILED**
+  if either operation fails, including which deployment failed.
 
 ### Database Tunnel tab
 

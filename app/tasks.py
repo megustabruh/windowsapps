@@ -192,3 +192,64 @@ def upload_frontend_to_s3(log: Callable[[str], None]) -> int:
     return code
 
 
+def deploy_backend_to_ec2(log: Callable[[str], None]) -> int:
+    """Pull the backend's main branch and apply Alembic migrations on EC2."""
+    conf = cfg.load_config()
+    tunnel = conf.get("ssh_tunnel", {})
+    ssh = conf.get("ssh_exe", "ssh")
+    pem = tunnel.get("pem_key_path", "")
+    ssh_user = tunnel.get("ssh_user", "ubuntu")
+    ssh_host = tunnel.get("ssh_host", "")
+    if not pem or not ssh_host:
+        log("[ec2] SSH key path and host must be configured in config.json.")
+        return 1
+
+    remote_commands = (
+        "cd ~/fastapi-lambda-app && "
+        "git pull origin main && "
+        "source venv/bin/activate && "
+        "alembic upgrade heads"
+    )
+    cmd = [
+        ssh, "-i", pem,
+        "-o", "BatchMode=yes",
+        "-o", "StrictHostKeyChecking=accept-new",
+        f"{ssh_user}@{ssh_host}", remote_commands,
+    ]
+    log(f"[ec2] Deploying backend on {ssh_user}@{ssh_host}...")
+    code = stream_process(
+        cmd, on_line=lambda line: log(f"[ec2] {line}"),
+        env=build_env_with_git_tools(ssh),
+    )
+    if code == 0:
+        log("[ec2] Backend deployment and database migrations completed successfully.")
+    else:
+        log(f"[ec2] Backend deployment failed with exit code {code}.")
+    return code
+
+
+def deploy_both(log: Callable[[str], None]) -> int:
+    """Attempt both production deploys and report each result independently."""
+    log("[deploy] Starting both production deployments.")
+    results = []
+    for name, tag, deploy in (
+        ("S3 frontend", "s3", upload_frontend_to_s3),
+        ("EC2 backend", "ec2", deploy_backend_to_ec2),
+    ):
+        try:
+            code = deploy(log)
+        except Exception as exc:
+            log(f"[{tag}] {name} raised an error: {exc}")
+            code = 1
+        results.append((name, code))
+        outcome = "SUCCESS" if code == 0 else f"FAILED (exit code {code})"
+        log(f"[deploy] {name}: {outcome}")
+
+    failures = [name for name, code in results if code != 0]
+    if failures:
+        log(f"[deploy] DEPLOY BOTH FAILED. Failed: {', '.join(failures)}.")
+        return 1
+    log("[deploy] DEPLOY BOTH SUCCEEDED. S3 frontend and EC2 backend are deployed.")
+    return 0
+
+
