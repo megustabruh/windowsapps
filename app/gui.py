@@ -11,7 +11,7 @@ from tkinter import messagebox, scrolledtext, ttk
 from . import config as cfg
 from . import scheduled_tasks
 from .ssh_tunnel import SSHTunnel
-from .tasks import TASKS, Task
+from .tasks import TASKS, Task, upload_frontend_to_s3
 
 BG = "#000000"
 HEADER_BG = "#111827"
@@ -118,15 +118,18 @@ class MainWindow:
         infra_tab = ttk.Frame(notebook, padding=8)
         tunnel_tab = ttk.Frame(notebook, padding=8)
         jobs_tab = ttk.Frame(notebook, padding=8)
+        s3_tab = ttk.Frame(notebook, padding=8)
         settings_tab = ttk.Frame(notebook, padding=8)
         notebook.add(infra_tab, text="Infra Control")
         notebook.add(tunnel_tab, text="Database Tunnel")
         notebook.add(jobs_tab, text="Jobs")
+        notebook.add(s3_tab, text="S3 Deployment")
         notebook.add(settings_tab, text="Settings")
 
         self._build_infra_tab(infra_tab)
         self._build_tunnel_tab(tunnel_tab)
         self._build_jobs_tab(jobs_tab)
+        self._build_s3_tab(s3_tab)
         self._build_settings_tab(settings_tab)
 
         # The Notebook otherwise sizes itself to fit its tallest tab (Jobs' table),
@@ -162,6 +165,7 @@ class MainWindow:
         self.log_widget.tag_configure("error", foreground="#f87171")
         self.log_widget.tag_configure("tunnel", foreground="#60a5fa")
         self.log_widget.tag_configure("jobs", foreground="#c084fc")
+        self.log_widget.tag_configure("s3", foreground="#34d399")
         self.log_widget.tag_configure("normal", foreground="#d4d4d4")
 
     def _build_infra_tab(self, tab: ttk.Frame) -> None:
@@ -223,6 +227,33 @@ class MainWindow:
             tab, text="Shows scheduled tasks authored by your Windows user account.", style="Hint.TLabel"
         ).pack(anchor=tk.W, pady=(6, 0))
 
+    def _build_s3_tab(self, tab: ttk.Frame) -> None:
+        conf = cfg.load_config()
+        source = conf.get(
+            "frontend_dist_path",
+            r"D:\Workspaces\Mixed\Houstyle\builder-io-react-frontend\dist\spa",
+        )
+        bucket = conf.get("frontend_s3_bucket", "personal-react-app")
+        region = conf.get("aws_region", "ap-south-1")
+        ttk.Label(tab, text="Frontend build:", style="Status.TLabel").grid(
+            row=0, column=0, sticky=tk.W, padx=6, pady=(6, 2)
+        )
+        ttk.Label(tab, text=source, style="Hint.TLabel", wraplength=790).grid(
+            row=1, column=0, sticky=tk.W, padx=6, pady=(0, 8)
+        )
+        ttk.Label(tab, text=f"S3 destination: s3://{bucket}  ({region})", style="Status.TLabel").grid(
+            row=2, column=0, sticky=tk.W, padx=6, pady=(0, 10)
+        )
+        self.s3_upload_button = ttk.Button(
+            tab, text="Upload Frontend to S3", style="Primary.TButton", command=self._upload_frontend
+        )
+        self.s3_upload_button.grid(row=3, column=0, sticky=tk.W, padx=6, pady=6)
+        ttk.Label(
+            tab,
+            text="Uploads new and changed files; existing unrelated bucket objects are left in place. Requires AWS CLI access to S3.",
+            style="Hint.TLabel", wraplength=790,
+        ).grid(row=4, column=0, sticky=tk.W, padx=6, pady=(4, 0))
+
     def _build_settings_tab(self, tab: ttk.Frame) -> None:
         ttk.Label(tab, text=f"Config file: {cfg.config_path()}", style="Hint.TLabel").pack(
             anchor=tk.NW, pady=(0, 10)
@@ -250,6 +281,8 @@ class MainWindow:
                 tag = "tunnel"
             elif message.startswith("[jobs]"):
                 tag = "jobs"
+            elif message.startswith("[s3]"):
+                tag = "s3"
             else:
                 tag = "normal"
             self.log_widget.configure(state="normal")
@@ -276,6 +309,20 @@ class MainWindow:
                 self._log_queue.put(f"'{task.name}' finished (exit code {code}).")
             except Exception as exc:  # surfaced to the log panel instead of crashing the UI
                 self._log_queue.put(f"'{task.name}' failed: {exc}")
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _upload_frontend(self) -> None:
+        self.s3_upload_button.configure(state=tk.DISABLED)
+
+        def worker() -> None:
+            try:
+                code = upload_frontend_to_s3(self._log_queue.put)
+                self._log_queue.put(f"Frontend S3 upload finished (exit code {code}).")
+            except Exception as exc:
+                self._log_queue.put(f"[s3] Frontend upload failed: {exc}")
+            finally:
+                self.root.after(0, lambda: self.s3_upload_button.configure(state=tk.NORMAL))
 
         threading.Thread(target=worker, daemon=True).start()
 

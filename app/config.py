@@ -10,6 +10,10 @@ DEFAULTS = {
     "bash_exe": r"C:\Program Files\Git\bin\bash.exe",
     "ssh_exe": r"C:\Program Files\Git\usr\bin\ssh.exe",
     "infra_script_path": str(Path(os.path.expanduser("~")) / "Downloads" / "manage_infra.sh"),
+    "aws_exe": "aws",
+    "aws_region": "ap-south-1",
+    "frontend_dist_path": r"D:\Workspaces\Mixed\Houstyle\builder-io-react-frontend\dist\spa",
+    "frontend_s3_bucket": "personal-react-app",
     "ssh_tunnel": {
         "pem_key_path": r"C:\path\to\ec2-pem-key.pem",
         "local_port": 3307,

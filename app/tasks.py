@@ -9,6 +9,7 @@ from __future__ import annotations
 import subprocess
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, List
 
 from . import config as cfg
@@ -165,5 +166,29 @@ def cancel_auto_stop(log: Callable[[str], None]) -> int:
 @register_task("Status", "Shows current EC2/RDS state and any pending auto-stop", style="neutral")
 def infra_status(log: Callable[[str], None]) -> int:
     return _run_infra_command(["status"], log)
+
+
+def upload_frontend_to_s3(log: Callable[[str], None]) -> int:
+    """Sync the configured frontend build directory to its S3 bucket."""
+    conf = cfg.load_config()
+    aws = conf.get("aws_exe", "aws")
+    region = conf.get("aws_region", "ap-south-1")
+    source = Path(conf.get(
+        "frontend_dist_path",
+        r"D:\Workspaces\Mixed\Houstyle\builder-io-react-frontend\dist\spa",
+    ))
+    bucket = conf.get("frontend_s3_bucket", "personal-react-app")
+    if not source.is_dir():
+        log(f"[s3] Frontend build folder was not found: {source}")
+        return 1
+
+    cmd = [aws, "s3", "sync", str(source), f"s3://{bucket}", "--region", region]
+    log(f"[s3] Uploading frontend files from {source} to s3://{bucket} ({region})...")
+    code = stream_process(cmd, on_line=lambda line: log(f"[s3] {line}"))
+    if code == 0:
+        log(f"[s3] Upload finished successfully: s3://{bucket}")
+    else:
+        log(f"[s3] Upload failed with exit code {code}.")
+    return code
 
 

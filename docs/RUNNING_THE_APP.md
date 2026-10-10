@@ -62,7 +62,7 @@ git-ignored. Re-run `./build.sh` any time you change code under `app/` or
 
 ## Using the app
 
-The window is split into four tabs, with a shared Activity Log always visible
+The window is split into five tabs, with a shared Activity Log always visible
 at the bottom (all tabs stream their output there).
 
 ### Infra Control tab (EC2 + RDS)
@@ -98,6 +98,19 @@ the full command reference) via Git Bash:
   any **Start** button also replaces a pending timer with a fresh one.
 - **Status** - `manage_infra.sh status`: prints current EC2/RDS state plus
   how long until any pending auto-stop.
+
+### S3 Deployment tab
+
+- **Upload Frontend to S3** runs `aws s3 sync` from the configured frontend
+  build folder to the configured bucket and region. By default, this uploads
+  `D:\Workspaces\Mixed\Houstyle\builder-io-react-frontend\dist\spa` to
+  `s3://personal-react-app` in `ap-south-1`. New and changed files are uploaded;
+  unrelated existing bucket objects are left in place. The Activity Log shows
+  AWS CLI progress and errors. AWS CLI must be installed and authenticated
+  with permission to write objects to the bucket.
+
+  Configure `aws_exe`, `aws_region`, `frontend_dist_path`, and
+  `frontend_s3_bucket` in `config.json` if these defaults differ.
 
 ### Database Tunnel tab
 
