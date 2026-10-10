@@ -78,6 +78,9 @@ the full command reference) via Git Bash:
   `ap-south-1`, RDS instance `database-3`, and EC2 instance
   `i-0c3d1dd6757159c28`; optional config keys `aws_exe`, `aws_region`,
   `rds_instance_id`, and `ec2_instance_id` can override them.
+- **Start RDS (retry)** checks RDS every 15 seconds and requests another start
+  whenever its state is `stopped`. It keeps running until RDS reports
+  `available`; progress and failed requests appear in the Activity Log.
 
 - **Start (1h)** / **Start (3h)** - `manage_infra.sh start 1h` / `start 3h`:
   starts RDS then EC2, and auto-stops both after that duration. A warning is

@@ -13,9 +13,9 @@ from . import scheduled_tasks
 from .ssh_tunnel import SSHTunnel
 from .tasks import TASKS, Task
 
-BG = "#f3f4f6"
+BG = "#000000"
 HEADER_BG = "#111827"
-MUTED = "#6b7280"
+MUTED = "#9ca3af"
 
 BUTTON_STYLES = {
     "success": ("Success.TButton", "#2e7d32", "#388e3c"),
@@ -61,15 +61,29 @@ class MainWindow:
         style.configure("Header.TLabel", background=HEADER_BG, foreground="white", font=("Segoe UI", 14, "bold"))
         style.configure("Sub.TLabel", background=HEADER_BG, foreground="#9ca3af", font=("Segoe UI", 9))
         style.configure("Hint.TLabel", background=BG, foreground=MUTED, font=("Segoe UI", 8, "italic"))
-        style.configure("Status.TLabel", background=BG, font=("Segoe UI", 9, "bold"))
+        style.configure("Status.TLabel", background=BG, foreground="#e5e7eb", font=("Segoe UI", 9, "bold"))
         style.configure(
-            "Section.TLabelframe", background=BG, bordercolor="#d1d5db", relief=tk.GROOVE
+            "Section.TLabelframe", background=BG, bordercolor="#4b5563", relief=tk.GROOVE
         )
         style.configure(
-            "Section.TLabelframe.Label", background=BG, foreground="#374151", font=("Segoe UI", 9, "bold")
+            "Section.TLabelframe.Label", background=BG, foreground="#f9fafb", font=("Segoe UI", 9, "bold")
         )
         style.configure("TNotebook", background=BG, borderwidth=0)
-        style.configure("TNotebook.Tab", padding=(14, 8), font=("Segoe UI", 9, "bold"))
+        style.configure(
+            "TNotebook.Tab", background="#292929", foreground="#f9fafb",
+            padding=(14, 8), font=("Segoe UI", 9, "bold"),
+        )
+        style.map(
+            "TNotebook.Tab",
+            background=[("selected", "#000000"), ("active", "#404040")],
+            foreground=[("selected", "#ffffff")],
+        )
+        style.configure(
+            "Treeview", background="#111111", foreground="#f3f4f6",
+            fieldbackground="#111111", bordercolor="#4b5563", rowheight=24,
+        )
+        style.configure("Treeview.Heading", background="#292929", foreground="#f9fafb")
+        style.map("Treeview", background=[("selected", "#1d4ed8")], foreground=[("selected", "#ffffff")])
 
         for style_name, base_color, active_color in BUTTON_STYLES.values():
             style.configure(
@@ -137,7 +151,7 @@ class MainWindow:
             log_frame,
             state="disabled",
             wrap=tk.WORD,
-            background="#1e1e1e",
+            background="#000000",
             foreground="#d4d4d4",
             insertbackground="white",
             font=("Consolas", 10),

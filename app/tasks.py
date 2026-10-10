@@ -6,11 +6,15 @@ needs to change, the button appears automatically.
 """
 from __future__ import annotations
 
+import subprocess
+import time
 from dataclasses import dataclass
 from typing import Callable, List
 
 from . import config as cfg
 from .process_utils import build_env_with_git_tools, stream_process
+
+RDS_RETRY_INTERVAL_SECONDS = 15
 
 
 @dataclass
@@ -74,6 +78,58 @@ def stop_db_only(log: Callable[[str], None]) -> int:
 @register_task("Stop EC2 only", "Stops EC2 without changing RDS", style="danger")
 def stop_ec2_only(log: Callable[[str], None]) -> int:
     return _run_resource_command("ec2", "stop", log)
+
+
+@register_task("Start RDS (retry)", "Keeps checking and retrying until RDS is available", style="success")
+def start_rds_retry(log: Callable[[str], None]) -> int:
+    """Keep polling RDS and request a start whenever the instance is stopped."""
+    conf = cfg.load_config()
+    aws = conf.get("aws_exe", "aws")
+    region = conf.get("aws_region", "ap-south-1")
+    db_id = conf.get("rds_instance_id", "database-3")
+    base_cmd = [aws, "rds", "describe-db-instances", "--region", region,
+                "--db-instance-identifier", db_id, "--query",
+                "DBInstances[0].DBInstanceStatus", "--output", "text"]
+    env = build_env_with_git_tools(conf.get("bash_exe", ""))
+    log(f"Retrying RDS start for {db_id}; checking every {RDS_RETRY_INTERVAL_SECONDS}s until available.")
+
+    while True:
+        try:
+            result = subprocess.run(
+                base_cmd, capture_output=True, text=True, env=env,
+                creationflags=0x08000000,
+            )
+        except OSError as exc:
+            log(f"[RDS retry] Could not run AWS CLI: {exc}; will retry.")
+            time.sleep(RDS_RETRY_INTERVAL_SECONDS)
+            continue
+        status = result.stdout.strip() if result.returncode == 0 else ""
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip()
+            log(f"[RDS retry] Could not read RDS status: {detail or 'AWS CLI failed'}")
+        elif status.lower() == "available":
+            log(f"[RDS retry] RDS {db_id} is available.")
+            return 0
+        else:
+            log(f"[RDS retry] RDS status: {status or 'unknown'}.")
+            if status.lower() == "stopped":
+                start_cmd = [aws, "rds", "start-db-instance", "--region", region,
+                             "--db-instance-identifier", db_id]
+                try:
+                    started = subprocess.run(
+                        start_cmd, capture_output=True, text=True, env=env,
+                        creationflags=0x08000000,
+                    )
+                except OSError as exc:
+                    log(f"[RDS retry] Could not run AWS CLI: {exc}; will retry.")
+                    time.sleep(RDS_RETRY_INTERVAL_SECONDS)
+                    continue
+                if started.returncode == 0:
+                    log(f"[RDS retry] Start requested for {db_id}.")
+                else:
+                    detail = (started.stderr or started.stdout).strip()
+                    log(f"[RDS retry] Start request failed; will retry: {detail or 'AWS CLI failed'}")
+        time.sleep(RDS_RETRY_INTERVAL_SECONDS)
 
 
 @register_task("Start (1h)", "Starts RDS + EC2, auto-stops after 1 hour", style="success")

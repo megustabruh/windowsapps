@@ -62,6 +62,7 @@ class SSHTunnel:
             "-i", p["pem_key_path"],
             "-N",  # don't run a remote command, just forward the port
             "-o", "ExitOnForwardFailure=yes",
+            "-o", "LogLevel=VERBOSE",
             "-o", "ServerAliveInterval=30",
             "-o", "ServerAliveCountMax=3",
             "-o", "StrictHostKeyChecking=accept-new",
@@ -92,9 +93,18 @@ class SSHTunnel:
             with self._lock:
                 self._process = process
 
+            connected_reported = False
             if process.stdout is not None:
                 for line in process.stdout:
-                    self._log(f"[tunnel] {line.rstrip()}")
+                    message = line.rstrip()
+                    if not connected_reported and "local forwarding listening on" in message.lower():
+                        self._log(
+                            f"[tunnel] Connected: localhost:{p['local_port']} -> "
+                            f"{p['remote_host']}:{p['remote_port']}"
+                        )
+                        connected_reported = True
+                    else:
+                        self._log(f"[tunnel] {message}")
             code = process.wait()
 
             with self._lock:
